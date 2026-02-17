@@ -116,13 +116,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract base64 data from data URL
-    const base64Match = image.match(/^data:image\/(\w+);base64,(.+)$/)
+    const base64Match = image.match(/^data:image\/([\w+.-]+);base64,(.+)/s)
     if (!base64Match) {
       return NextResponse.json({ error: 'Invalid image format' }, { status: 400 })
     }
 
     const mimeType = `image/${base64Match[1]}`
-    const base64Data = base64Match[2]
+    const base64Data = base64Match[2].replace(/\s/g, '')
 
     // Use custom prompt if provided, otherwise use the full modernize prompt
     const enhancementPrompt = prompt
