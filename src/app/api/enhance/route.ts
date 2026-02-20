@@ -105,7 +105,17 @@ FINAL INSTRUCTION: Return only the transformed image of the same room from the s
 
 export async function POST(request: NextRequest) {
   try {
-    const { image, prompt } = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Request too large or malformed. Try a smaller image.' },
+        { status: 400 }
+      )
+    }
+
+    const { image, prompt } = body
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
@@ -116,22 +126,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract base64 data from data URL
-    const base64Match = image.match(/^data:image\/([\w+.-]+);base64,(.+)/s)
-    if (!base64Match) {
-      return NextResponse.json({ error: 'Invalid image format' }, { status: 400 })
+    const commaIndex = image.indexOf(',')
+    const headerPart = commaIndex > 0 ? image.substring(0, commaIndex) : ''
+    const mimeMatch = headerPart.match(/^data:(image\/[\w+.-]+);base64$/)
+    if (!mimeMatch || commaIndex < 0) {
+      return NextResponse.json({ error: 'Invalid image format. Expected data:image/...;base64,...' }, { status: 400 })
     }
 
-    const mimeType = `image/${base64Match[1]}`
-    const base64Data = base64Match[2].replace(/\s/g, '')
+    const mimeType = mimeMatch[1]
+    const base64Data = image.substring(commaIndex + 1).replace(/\s/g, '')
 
     // Use custom prompt if provided, otherwise use the full modernize prompt
     const enhancementPrompt = prompt
       ? `${MODERNIZE_PROMPT}\n\nADDITIONAL USER INSTRUCTIONS: ${prompt}`
       : MODERNIZE_PROMPT
 
-    // Call nano-banana-pro-preview (same model as listings viewer)
+    // Call Gemini 3 Pro Image (image generation/editing model)
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -13,6 +13,39 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
+  const compressImage = useCallback((dataUrl: string, maxSizeKB: number = 1500): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+
+        // Scale down if very large (max 2048px on longest side)
+        const maxDim = 2048
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height)
+          width = Math.round(width * scale)
+          height = Math.round(height * scale)
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+
+        // Try JPEG at decreasing quality until under maxSizeKB
+        let quality = 0.85
+        let result = canvas.toDataURL('image/jpeg', quality)
+        while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.3) {
+          quality -= 0.1
+          result = canvas.toDataURL('image/jpeg', quality)
+        }
+        resolve(result)
+      }
+      img.src = dataUrl
+    })
+  }, [])
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -23,13 +56,16 @@ export default function Home() {
     }
 
     const reader = new FileReader()
-    reader.onload = (event) => {
-      setOriginalImage(event.target?.result as string)
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string
+      // Compress to stay within Vercel's body size limit (~4.5MB)
+      const compressed = await compressImage(dataUrl)
+      setOriginalImage(compressed)
       setEnhancedImage(null)
       setError(null)
     }
     reader.readAsDataURL(file)
-  }, [])
+  }, [compressImage])
 
   const handleEnhance = async (prompt?: string) => {
     if (!originalImage) return
