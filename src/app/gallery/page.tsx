@@ -6,6 +6,26 @@ import Link from 'next/link';
 import type { Transformation, GalleryResponse } from '../../lib/types';
 import { useAnalytics } from '../../hooks/useAnalytics';
 
+const STYLE_COLORS: Record<string, string> = {
+  'avant-garde': '#8b5cf6',
+  'timeless-estate': '#d4a574',
+  'pure-form': '#84a98c',
+  'resort-living': '#e8927c',
+  'urban-penthouse': '#64748b',
+  'coastal-modern': '#5eadb0',
+  'executive-modern': '#9ca3af',
+};
+
+const STYLE_NAMES: Record<string, string> = {
+  'avant-garde': 'Avant-Garde',
+  'timeless-estate': 'Timeless Estate',
+  'pure-form': 'Pure Form',
+  'resort-living': 'Resort Living',
+  'urban-penthouse': 'Urban Penthouse',
+  'coastal-modern': 'Coastal Modern',
+  'executive-modern': 'Executive Modern',
+};
+
 function ProgressRing({ size = 32 }: { size?: number }) {
   return (
     <svg className="progress-ring" width={size} height={size} viewBox="0 0 100 100">
@@ -14,14 +34,7 @@ function ProgressRing({ size = 32 }: { size?: number }) {
   )
 }
 
-const STYLES = [
-  'All',
-  'Modern luxury interior',
-  'Warm cozy lighting',
-  'Clean minimalist',
-  'Bright and airy',
-  'Professional real estate',
-];
+const STYLES = ['All', ...Object.keys(STYLE_NAMES)];
 
 export default function GalleryPage() {
   const [data, setData] = useState<GalleryResponse | null>(null);
@@ -53,7 +66,7 @@ export default function GalleryPage() {
   return (
     <main className="min-h-screen bg-black">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/[0.06]">
+      <header className="fixed top-0 left-0 right-0 z-50 header-glass border-b border-white/[0.06]">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
           <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300">
             <ArrowLeft className="w-4 h-4 text-white/50" />
@@ -72,22 +85,28 @@ export default function GalleryPage() {
               placeholder="Search…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/[0.06] rounded-full text-[14px] text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/30 transition-colors duration-300"
+              className="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/[0.06] rounded-full text-[14px] text-white placeholder-white/20 focus:outline-none focus:border-white/20 transition-colors duration-300"
             />
           </div>
 
-          {/* Style pills */}
+          {/* Style pills with accent colors */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {STYLES.map((s) => {
               const val = s === 'All' ? '' : s;
               const active = style === val;
+              const color = STYLE_COLORS[s] || '#6366f1';
               return (
                 <button
                   key={s}
                   onClick={() => { setStyle(val); setPage(1); }}
-                  className={`pill-button whitespace-nowrap text-[13px] ${active ? 'pill-button-active' : ''}`}
+                  className="pill-button whitespace-nowrap text-[13px] transition-all duration-300"
+                  style={active ? {
+                    backgroundColor: `${color}20`,
+                    borderColor: `${color}60`,
+                    color: color,
+                  } : undefined}
                 >
-                  {s}
+                  {STYLE_NAMES[s] || s}
                 </button>
               );
             })}
@@ -102,27 +121,37 @@ export default function GalleryPage() {
         ) : data && data.transformations.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.transformations.map((t, i) => (
-                <button
-                  key={t.id}
-                  onClick={() => setSelected(t)}
-                  className="group glass-card glass-card-hover overflow-hidden text-left hover-lift animate-fade-in"
-                  style={{ animationDelay: `${i * 50}ms`, opacity: 0 }}
-                >
-                  <div className="grid grid-cols-2 gap-[1px] bg-white/[0.04]">
-                    <img src={t.original_blob_url} alt="Original" className="w-full aspect-[4/3] object-cover transition-all duration-500 group-hover:brightness-110" />
-                    <img src={t.enhanced_blob_url} alt="Enhanced" className="w-full aspect-[4/3] object-cover transition-all duration-500 group-hover:brightness-110 group-hover:scale-[1.02]" />
-                  </div>
-                  <div className="p-4">
-                    <p className="text-[12px] text-white/30 font-light">{new Date(t.created_at).toLocaleDateString()}</p>
-                    {t.style_tag && (
-                      <span className="inline-block mt-2 px-3 py-1 text-[11px] font-medium bg-indigo-500/10 text-indigo-400/70 rounded-full border border-indigo-500/10">
-                        {t.style_tag}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
+              {data.transformations.map((t, i) => {
+                const styleColor = t.style_key ? STYLE_COLORS[t.style_key] : undefined;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelected(t)}
+                    className="group glass-card glass-card-hover overflow-hidden text-left hover-lift animate-fade-in"
+                    style={{ animationDelay: `${i * 50}ms`, opacity: 0 }}
+                  >
+                    <div className="grid grid-cols-2 gap-[1px] bg-white/[0.04]">
+                      <img src={t.original_blob_url} alt="Original" className="w-full aspect-[4/3] object-cover transition-all duration-500 group-hover:brightness-110" />
+                      <img src={t.enhanced_blob_url} alt="Enhanced" className="w-full aspect-[4/3] object-cover transition-all duration-500 group-hover:brightness-110 group-hover:scale-[1.02]" />
+                    </div>
+                    <div className="p-4 flex items-center justify-between">
+                      <p className="text-[12px] text-white/30 font-light">{new Date(t.created_at).toLocaleDateString()}</p>
+                      {t.style_key && (
+                        <span
+                          className="inline-block px-3 py-1 text-[11px] font-medium rounded-full border"
+                          style={{
+                            backgroundColor: `${styleColor}15`,
+                            borderColor: `${styleColor}30`,
+                            color: `${styleColor}cc`,
+                          }}
+                        >
+                          {t.style_name || STYLE_NAMES[t.style_key] || t.style_key}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Pagination */}
@@ -190,10 +219,17 @@ export default function GalleryPage() {
                 <img src={selected.enhanced_blob_url} alt="Enhanced" className="w-full rounded-lg" />
               </div>
             </div>
-            {selected.style_tag && (
+            {selected.style_key && (
               <div className="px-6 pb-6">
-                <span className="inline-block px-3 py-1 text-[12px] font-medium bg-indigo-500/10 text-indigo-400/70 rounded-full border border-indigo-500/10">
-                  {selected.style_tag}
+                <span
+                  className="inline-block px-3 py-1 text-[12px] font-medium rounded-full border"
+                  style={{
+                    backgroundColor: `${STYLE_COLORS[selected.style_key] || '#6366f1'}15`,
+                    borderColor: `${STYLE_COLORS[selected.style_key] || '#6366f1'}30`,
+                    color: `${STYLE_COLORS[selected.style_key] || '#6366f1'}cc`,
+                  }}
+                >
+                  {selected.style_name || STYLE_NAMES[selected.style_key] || selected.style_key}
                 </span>
               </div>
             )}

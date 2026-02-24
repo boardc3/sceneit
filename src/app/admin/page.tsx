@@ -4,8 +4,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Download, BarChart3, Activity, Users, Clock, TrendingUp, AlertCircle, Monitor } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { AdminStats } from '../../lib/types';
+
+const STYLE_COLORS: Record<string, string> = {
+  'avant-garde': '#8b5cf6',
+  'timeless-estate': '#d4a574',
+  'pure-form': '#84a98c',
+  'resort-living': '#e8927c',
+  'urban-penthouse': '#64748b',
+  'coastal-modern': '#5eadb0',
+  'executive-modern': '#9ca3af',
+  'default': '#6366f1',
+};
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -36,7 +47,9 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; 
   );
 }
 
-const COLORS = ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff', '#6366f1', '#818cf8'];
+function getStyleColor(style: string): string {
+  return STYLE_COLORS[style] || '#6366f1';
+}
 
 const tooltipStyle = {
   background: 'rgba(10,10,10,0.95)',
@@ -83,7 +96,7 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-black">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/[0.06]">
+      <header className="fixed top-0 left-0 right-0 z-50 header-glass border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300">
@@ -158,7 +171,7 @@ export default function AdminPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Styles */}
+          {/* Styles — using accent colors */}
           <div className="glass-card p-6">
             <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Styles</h2>
             <ResponsiveContainer width="100%" height={220}>
@@ -167,7 +180,9 @@ export default function AdminPage() {
                 <YAxis type="category" dataKey="style" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                  {stats.popular_styles.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  {stats.popular_styles.map((entry, i) => (
+                    <Cell key={i} fill={getStyleColor(entry.style)} />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -253,21 +268,32 @@ export default function AdminPage() {
             <p className="text-[13px] text-white/15">No transformations yet</p>
           ) : (
             <div className="space-y-2">
-              {stats.recent_transformations.map((t) => (
-                <div key={t.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.02] transition-colors duration-300">
-                  {t.enhanced_blob_url && (
-                    <img src={t.enhanced_blob_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] text-white/50 truncate font-light">{t.style_tag || t.prompt_used || 'Default'}</p>
-                    <p className="text-[11px] text-white/20">{new Date(t.created_at).toLocaleString()}</p>
+              {stats.recent_transformations.map((t) => {
+                const color = t.style_key ? getStyleColor(t.style_key) : '#6366f1';
+                return (
+                  <div key={t.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.02] transition-colors duration-300">
+                    {t.enhanced_blob_url && (
+                      <img src={t.enhanced_blob_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-[13px] text-white/50 truncate font-light">{t.style_name || t.prompt_used || 'Default'}</p>
+                        {t.style_key && (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: color }}
+                          />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-white/20">{new Date(t.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-[12px] text-white/25 tabular-nums">{(t.processing_time_ms / 1000).toFixed(1)}s</p>
+                      <p className="text-[11px] text-white/15">{t.opt_in ? '✓' : '—'}</p>
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-[12px] text-white/25 tabular-nums">{(t.processing_time_ms / 1000).toFixed(1)}s</p>
-                    <p className="text-[11px] text-white/15">{t.opt_in ? '✓' : '—'}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

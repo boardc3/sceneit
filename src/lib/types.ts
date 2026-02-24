@@ -5,15 +5,15 @@ export interface Transformation {
   original_blob_url: string;
   enhanced_blob_url: string;
   prompt_used: string | null;
-  style_tag: string | null;
+  style_key: string | null;
+  style_name: string | null;
   processing_time_ms: number;
   original_size_bytes: number;
   enhanced_size_bytes: number;
-  original_dimensions: string | null;
-  enhanced_dimensions: string | null;
   opt_in: boolean;
   user_agent: string | null;
   ip_hash: string | null;
+  referrer: string | null;
 }
 
 export interface UsageEvent {

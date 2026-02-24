@@ -1,11 +1,21 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Camera, Upload, Sparkles, Download, RotateCcw, X, ImageIcon, Images, ArrowUpRight } from 'lucide-react'
+import { Camera, Sparkles, Download, RotateCcw, X, Images, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
 import { useAnalytics } from '../hooks/useAnalytics'
 
-function ProgressRing() {
+const DESIGN_STYLES = [
+  { key: 'avant-garde', name: 'Avant-Garde', subtitle: 'Bold geometry meets artistic vision', icon: '◆', accentColor: '#8b5cf6' },
+  { key: 'timeless-estate', name: 'Timeless Estate', subtitle: 'Old-world elegance, reimagined', icon: '♛', accentColor: '#d4a574' },
+  { key: 'pure-form', name: 'Pure Form', subtitle: 'The art of essential space', icon: '○', accentColor: '#84a98c' },
+  { key: 'resort-living', name: 'Resort Living', subtitle: 'Permanent vacation, elevated', icon: '☀', accentColor: '#e8927c' },
+  { key: 'urban-penthouse', name: 'Urban Penthouse', subtitle: 'City living at its apex', icon: '▲', accentColor: '#64748b' },
+  { key: 'coastal-modern', name: 'Coastal Modern', subtitle: 'Where land meets luxury', icon: '◎', accentColor: '#5eadb0' },
+  { key: 'executive-modern', name: 'Executive Modern', subtitle: 'Command presence, refined taste', icon: '■', accentColor: '#9ca3af' },
+]
+
+function ProgressRing({ color = '#6366f1' }: { color?: string }) {
   return (
     <svg className="progress-ring w-16 h-16" viewBox="0 0 100 100">
       <circle
@@ -14,7 +24,7 @@ function ProgressRing() {
         cy="50"
         r="45"
         fill="none"
-        stroke="#6366f1"
+        stroke={color}
         strokeWidth="3"
       />
     </svg>
@@ -29,9 +39,13 @@ export default function Home() {
   const [customPrompt, setCustomPrompt] = useState('')
   const [showPromptInput, setShowPromptInput] = useState(false)
   const [optIn, setOptIn] = useState(false)
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { track, getSessionId, flush } = useAnalytics()
+
+  const activeStyle = DESIGN_STYLES.find(s => s.key === selectedStyle)
+  const accentColor = activeStyle?.accentColor || '#6366f1'
 
   useEffect(() => {
     const saved = localStorage.getItem('sceneit_opt_in')
@@ -94,25 +108,24 @@ export default function Home() {
     reader.readAsDataURL(file)
   }, [compressImage, track])
 
-  const handleEnhance = async (prompt?: string) => {
+  const handleEnhance = async () => {
     if (!originalImage) return
     setIsProcessing(true)
     setError(null)
     setShowPromptInput(false)
-    const styleTag = prompt || undefined
-    track('enhance_start', { style_tag: styleTag, has_custom_prompt: !!customPrompt })
-    if (styleTag) track('style_selected', { style: styleTag })
-    if (customPrompt && !prompt) track('prompt_custom', { prompt: customPrompt })
+    track('enhance_start', { style_key: selectedStyle, has_custom_prompt: !!customPrompt })
+    if (selectedStyle) track('style_selected', { style: selectedStyle })
+    if (customPrompt) track('prompt_custom', { prompt: customPrompt })
     try {
       const response = await fetch('/api/enhance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: originalImage,
-          prompt: prompt || customPrompt || undefined,
+          prompt: customPrompt || undefined,
           opt_in: optIn,
           session_id: getSessionId(),
-          style_tag: styleTag || (customPrompt ? 'custom' : null),
+          styleKey: selectedStyle || undefined,
         })
       })
       const data = await response.json()
@@ -144,23 +157,16 @@ export default function Home() {
     setError(null)
     setCustomPrompt('')
     setShowPromptInput(false)
+    setSelectedStyle(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     flush()
   }
 
-  const styles = [
-    'Modern luxury interior',
-    'Warm cozy lighting',
-    'Clean minimalist',
-    'Bright and airy',
-    'Professional real estate',
-  ]
-
   return (
     <main className="min-h-screen bg-black">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/[0.06]">
+      <header className="fixed top-0 left-0 right-0 z-50 header-glass border-b border-white/[0.06]">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/" className="text-[15px] font-semibold text-white/90 tracking-tight">
             SCENEIT
@@ -281,7 +287,10 @@ export default function Home() {
             )}
 
             {/* Image Comparison — full bleed */}
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/[0.04] mt-6 mx-6 rounded-2xl overflow-hidden">
+            <div
+              className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/[0.04] mt-6 mx-6 rounded-2xl overflow-hidden transition-shadow duration-500"
+              style={enhancedImage ? { boxShadow: `0 0 40px ${accentColor}15` } : undefined}
+            >
               {/* Original */}
               <div className="relative bg-black/60">
                 <div className="absolute top-4 left-4 z-10">
@@ -301,14 +310,17 @@ export default function Home() {
               {/* Enhanced */}
               <div className="relative bg-black/60">
                 <div className="absolute top-4 left-4 z-10">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider text-indigo-400/80 bg-black/40 backdrop-blur-xl border border-indigo-500/20">
+                  <span
+                    className="px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider bg-black/40 backdrop-blur-xl border"
+                    style={{ color: `${accentColor}cc`, borderColor: `${accentColor}33` }}
+                  >
                     Enhanced
                   </span>
                 </div>
                 <div className="aspect-[4/3] flex items-center justify-center">
                   {isProcessing ? (
                     <div className="flex flex-col items-center gap-4">
-                      <ProgressRing />
+                      <ProgressRing color={accentColor} />
                       <p className="text-[13px] text-white/30">Enhancing…</p>
                     </div>
                   ) : enhancedImage ? (
@@ -326,14 +338,14 @@ export default function Home() {
 
             {/* Floating Control Bar */}
             <div className="sticky bottom-0 z-40 p-6">
-              <div className="max-w-3xl mx-auto glass-card px-6 py-4 flex flex-col gap-4" style={{ background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(40px)' }}>
+              <div className="max-w-4xl mx-auto glass-card px-6 py-5 flex flex-col gap-5" style={{ background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(40px)' }}>
                 {/* Custom prompt */}
                 {showPromptInput && !isProcessing && (
                   <textarea
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     placeholder="Describe your vision…"
-                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-[14px] text-white placeholder-white/20 resize-none focus:outline-none focus:border-indigo-500/30 transition-colors duration-300"
+                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-[14px] text-white placeholder-white/20 resize-none focus:outline-none focus:border-white/20 transition-colors duration-300"
                     rows={2}
                   />
                 )}
@@ -343,8 +355,12 @@ export default function Home() {
                   {!enhancedImage && !isProcessing && (
                     <>
                       <button
-                        onClick={() => handleEnhance()}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-[14px] font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                        onClick={handleEnhance}
+                        className="glass-button-accent flex items-center gap-2 px-6 py-2.5 rounded-full text-white text-[14px] font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                        style={{
+                          backgroundColor: accentColor,
+                          boxShadow: `0 4px 20px ${accentColor}40`,
+                        }}
                       >
                         <Sparkles className="w-4 h-4" />
                         Enhance
@@ -380,18 +396,38 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Quick Styles */}
+                {/* Style Cards */}
                 {!enhancedImage && !isProcessing && (
-                  <div className="flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
-                    {styles.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => handleEnhance(s)}
-                        className="pill-button whitespace-nowrap text-[13px]"
-                      >
-                        {s}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {DESIGN_STYLES.map((s) => {
+                      const isActive = selectedStyle === s.key
+                      return (
+                        <button
+                          key={s.key}
+                          onClick={() => setSelectedStyle(isActive ? null : s.key)}
+                          className="relative text-left rounded-xl p-3 border transition-all duration-300 group overflow-hidden"
+                          style={{
+                            background: isActive ? `${s.accentColor}12` : 'rgba(255,255,255,0.02)',
+                            borderColor: isActive ? `${s.accentColor}60` : 'rgba(255,255,255,0.06)',
+                            boxShadow: isActive ? `0 0 20px ${s.accentColor}20, inset 0 0 20px ${s.accentColor}08` : 'none',
+                          }}
+                        >
+                          {/* Accent strip */}
+                          <div
+                            className="absolute top-0 left-0 right-0 h-[2px] transition-opacity duration-300"
+                            style={{
+                              background: s.accentColor,
+                              opacity: isActive ? 1 : 0,
+                            }}
+                          />
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-base" style={{ color: isActive ? s.accentColor : 'rgba(255,255,255,0.4)' }}>{s.icon}</span>
+                            <span className="text-[13px] font-medium" style={{ color: isActive ? s.accentColor : 'rgba(255,255,255,0.7)' }}>{s.name}</span>
+                          </div>
+                          <p className="text-[11px] text-white/30 leading-tight">{s.subtitle}</p>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>

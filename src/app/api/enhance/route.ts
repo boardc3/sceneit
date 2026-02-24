@@ -3,6 +3,7 @@ import { uploadImage } from '../../../lib/blob'
 import { saveTransformation } from '../../../lib/db'
 import { logServerEvent } from '../../../lib/analytics'
 import { hashIp } from '../../../lib/auth'
+import { getStyleByKey } from '../../../lib/styles'
 
 // Vercel serverless function config
 export const maxDuration = 60 // seconds (requires Pro plan for >10s)
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { image, prompt, opt_in, session_id, style_tag } = body
+    const { image, prompt, opt_in, session_id, styleKey } = body
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
@@ -142,10 +143,24 @@ export async function POST(request: NextRequest) {
 
     const startTime = Date.now()
 
-    // Use custom prompt if provided, otherwise use the full modernize prompt
-    const enhancementPrompt = prompt
-      ? `${MODERNIZE_PROMPT}\n\nADDITIONAL USER INSTRUCTIONS: ${prompt}`
-      : MODERNIZE_PROMPT
+    // Determine the prompt to use
+    let enhancementPrompt: string
+    let styleKeyUsed: string | null = null
+    let styleNameUsed: string | null = null
+
+    const style = styleKey ? getStyleByKey(styleKey) : null
+
+    if (style) {
+      styleKeyUsed = style.key
+      styleNameUsed = style.name
+      enhancementPrompt = prompt
+        ? `${style.prompt}\n\nADDITIONAL USER INSTRUCTIONS: ${prompt}`
+        : style.prompt
+    } else if (prompt) {
+      enhancementPrompt = `${MODERNIZE_PROMPT}\n\nADDITIONAL USER INSTRUCTIONS: ${prompt}`
+    } else {
+      enhancementPrompt = MODERNIZE_PROMPT
+    }
 
     // Call Gemini 3 Pro Image (image generation/editing model)
     const response = await fetch(
@@ -223,15 +238,15 @@ export async function POST(request: NextRequest) {
             original_blob_url: originalBlob.url,
             enhanced_blob_url: enhancedBlob.url,
             prompt_used: prompt || null,
-            style_tag: style_tag || null,
+            style_key: styleKeyUsed,
+            style_name: styleNameUsed,
             processing_time_ms: processingTime,
             original_size_bytes: originalBlob.size,
             enhanced_size_bytes: enhancedBlob.size,
-            original_dimensions: null,
-            enhanced_dimensions: null,
             opt_in: true,
             user_agent: request.headers.get('user-agent'),
             ip_hash: hashIp(request),
+            referrer: null,
           });
           transformationId = id ?? undefined;
         }
@@ -245,7 +260,7 @@ export async function POST(request: NextRequest) {
       logServerEvent({
         session_id,
         event_type: 'enhance_complete',
-        event_data: { processing_time_ms: processingTime, style_tag, has_custom_prompt: !!prompt },
+        event_data: { processing_time_ms: processingTime, style_key: styleKeyUsed, has_custom_prompt: !!prompt },
         transformation_id: transformationId,
         ip_hash: hashIp(request),
         user_agent: request.headers.get('user-agent') || undefined,
