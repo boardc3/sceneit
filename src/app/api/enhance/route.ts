@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { uploadImage } from '../../../lib/blob'
+import { saveTransformation } from '../../../lib/db'
+import { logServerEvent } from '../../../lib/analytics'
+import { hashIp } from '../../../lib/auth'
 
 // Vercel serverless function config
 export const maxDuration = 60 // seconds (requires Pro plan for >10s)
@@ -115,7 +119,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { image, prompt } = body
+    const { image, prompt, opt_in, session_id, style_tag } = body
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
@@ -135,6 +139,8 @@ export async function POST(request: NextRequest) {
 
     const mimeType = mimeMatch[1]
     const base64Data = image.substring(commaIndex + 1).replace(/\s/g, '')
+
+    const startTime = Date.now()
 
     // Use custom prompt if provided, otherwise use the full modernize prompt
     const enhancementPrompt = prompt
@@ -200,8 +206,53 @@ export async function POST(request: NextRequest) {
     }
 
     const enhancedImage = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`
+    const processingTime = Date.now() - startTime
 
-    return NextResponse.json({ enhanced: enhancedImage })
+    // Persist if opted in (fire-and-forget, don't block response)
+    let transformationId: string | undefined;
+    if (opt_in && session_id) {
+      try {
+        const [originalBlob, enhancedBlob] = await Promise.all([
+          uploadImage(image, 'originals'),
+          uploadImage(enhancedImage, 'enhanced'),
+        ]);
+
+        if (originalBlob && enhancedBlob) {
+          const id = await saveTransformation({
+            session_id,
+            original_blob_url: originalBlob.url,
+            enhanced_blob_url: enhancedBlob.url,
+            prompt_used: prompt || null,
+            style_tag: style_tag || null,
+            processing_time_ms: processingTime,
+            original_size_bytes: originalBlob.size,
+            enhanced_size_bytes: enhancedBlob.size,
+            original_dimensions: null,
+            enhanced_dimensions: null,
+            opt_in: true,
+            user_agent: request.headers.get('user-agent'),
+            ip_hash: hashIp(request),
+          });
+          transformationId = id ?? undefined;
+        }
+      } catch (e) {
+        console.error('Persistence error (non-blocking):', e);
+      }
+    }
+
+    // Log enhance_complete event
+    if (session_id) {
+      logServerEvent({
+        session_id,
+        event_type: 'enhance_complete',
+        event_data: { processing_time_ms: processingTime, style_tag, has_custom_prompt: !!prompt },
+        transformation_id: transformationId,
+        ip_hash: hashIp(request),
+        user_agent: request.headers.get('user-agent') || undefined,
+      }).catch(() => {});
+    }
+
+    return NextResponse.json({ enhanced: enhancedImage, transformation_id: transformationId })
   } catch (error) {
     console.error('Enhancement error:', error)
     return NextResponse.json(

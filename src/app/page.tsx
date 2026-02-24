@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { Camera, Upload, Sparkles, Download, RotateCcw, Loader2, X, ImageIcon } from 'lucide-react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { Camera, Upload, Sparkles, Download, RotateCcw, Loader2, X, ImageIcon, Images } from 'lucide-react'
+import Link from 'next/link'
+import { useAnalytics } from '../hooks/useAnalytics'
 
 export default function Home() {
   const [originalImage, setOriginalImage] = useState<string | null>(null)
@@ -10,8 +12,24 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [customPrompt, setCustomPrompt] = useState('')
   const [showPromptInput, setShowPromptInput] = useState(false)
+  const [optIn, setOptIn] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const { track, getSessionId, flush } = useAnalytics()
+
+  // Load opt-in preference from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sceneit_opt_in')
+    if (saved === 'true') setOptIn(true)
+    track('page_view')
+  }, [track])
+
+  const toggleOptIn = () => {
+    const next = !optIn
+    setOptIn(next)
+    localStorage.setItem('sceneit_opt_in', String(next))
+    track(next ? 'consent_given' : 'consent_revoked')
+  }
 
   const compressImage = useCallback((dataUrl: string, maxSizeKB: number = 1500): Promise<string> => {
     return new Promise((resolve) => {
@@ -20,7 +38,6 @@ export default function Home() {
         const canvas = document.createElement('canvas')
         let { width, height } = img
 
-        // Scale down if very large (max 2048px on longest side)
         const maxDim = 2048
         if (width > maxDim || height > maxDim) {
           const scale = maxDim / Math.max(width, height)
@@ -33,7 +50,6 @@ export default function Home() {
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0, width, height)
 
-        // Try JPEG at decreasing quality until under maxSizeKB
         let quality = 0.85
         let result = canvas.toDataURL('image/jpeg', quality)
         while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.3) {
@@ -46,7 +62,7 @@ export default function Home() {
     })
   }, [])
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>, source: string) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -55,17 +71,19 @@ export default function Home() {
       return
     }
 
+    track('upload_start', { source })
+
     const reader = new FileReader()
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string
-      // Compress to stay within Vercel's body size limit (~4.5MB)
       const compressed = await compressImage(dataUrl)
       setOriginalImage(compressed)
       setEnhancedImage(null)
       setError(null)
+      track('upload_complete', { source, size: file.size })
     }
     reader.readAsDataURL(file)
-  }, [compressImage])
+  }, [compressImage, track])
 
   const handleEnhance = async (prompt?: string) => {
     if (!originalImage) return
@@ -74,13 +92,21 @@ export default function Home() {
     setError(null)
     setShowPromptInput(false)
 
+    const styleTag = prompt || undefined
+    track('enhance_start', { style_tag: styleTag, has_custom_prompt: !!customPrompt })
+    if (styleTag) track('style_selected', { style: styleTag })
+    if (customPrompt && !prompt) track('prompt_custom', { prompt: customPrompt })
+
     try {
       const response = await fetch('/api/enhance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: originalImage,
-          prompt: prompt || customPrompt || undefined
+          prompt: prompt || customPrompt || undefined,
+          opt_in: optIn,
+          session_id: getSessionId(),
+          style_tag: styleTag || (customPrompt ? 'custom' : null),
         })
       })
 
@@ -92,7 +118,9 @@ export default function Home() {
 
       setEnhancedImage(data.enhanced)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      const msg = err instanceof Error ? err.message : 'Something went wrong'
+      setError(msg)
+      track('enhance_error', { error: msg })
     } finally {
       setIsProcessing(false)
     }
@@ -100,6 +128,7 @@ export default function Home() {
 
   const handleDownload = () => {
     if (!enhancedImage) return
+    track('download')
 
     const link = document.createElement('a')
     link.href = enhancedImage
@@ -117,6 +146,7 @@ export default function Home() {
     setShowPromptInput(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
+    flush()
   }
 
   return (
@@ -135,14 +165,20 @@ export default function Home() {
               <p className="text-[10px] text-white/50 uppercase tracking-widest">AI Photo Enhancement</p>
             </div>
           </div>
-          {originalImage && (
-            <button
-              onClick={handleReset}
-              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-            >
-              <RotateCcw className="w-5 h-5 text-white/70" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <Link href="/gallery" className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm text-white/70">
+              <Images className="w-4 h-4" />
+              <span className="hidden sm:inline">Gallery</span>
+            </Link>
+            {originalImage && (
+              <button
+                onClick={handleReset}
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+              >
+                <RotateCcw className="w-5 h-5 text-white/70" />
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -157,6 +193,17 @@ export default function Home() {
               <p className="text-white/60 text-lg max-w-md mx-auto">
                 Enhance any image with AI-powered magic. Modernize interiors, upgrade exteriors, or reimagine any scene.
               </p>
+            </div>
+
+            {/* Opt-in Toggle */}
+            <div className="mb-8 flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/10">
+              <button
+                onClick={toggleOptIn}
+                className={`relative w-11 h-6 rounded-full transition-colors ${optIn ? 'bg-violet-600' : 'bg-white/20'}`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${optIn ? 'translate-x-5' : ''}`} />
+              </button>
+              <span className="text-sm text-white/60">Save my photos to help improve SceneIt</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
@@ -174,7 +221,7 @@ export default function Home() {
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  onChange={handleFileSelect}
+                  onChange={(e) => handleFileSelect(e, 'camera')}
                   className="hidden"
                 />
               </button>
@@ -192,7 +239,7 @@ export default function Home() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={handleFileSelect}
+                  onChange={(e) => handleFileSelect(e, 'upload')}
                   className="hidden"
                 />
               </button>
