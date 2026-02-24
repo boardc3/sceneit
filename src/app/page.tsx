@@ -31,7 +31,10 @@ export default function Home() {
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { track, getSessionId, flush } = useAnalytics()
 
+  const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
+    setMounted(true)
     const saved = localStorage.getItem('sceneit_opt_in')
     if (saved === 'true') setOptIn(true)
     track('page_view')
@@ -188,17 +191,21 @@ export default function Home() {
             <div
               className="animate-fade-in animate-fade-in-delay-1 w-full max-w-lg"
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 e.preventDefault()
                 const file = e.dataTransfer.files[0]
                 if (file && file.type.startsWith('image/')) {
-                  const input = fileInputRef.current
-                  if (input) {
-                    const dt = new DataTransfer()
-                    dt.items.add(file)
-                    input.files = dt.files
-                    input.dispatchEvent(new Event('change', { bubbles: true }))
+                  track('upload_start', { source: 'drop' })
+                  const reader = new FileReader()
+                  reader.onload = async (event) => {
+                    const dataUrl = event.target?.result as string
+                    const compressed = await compressImage(dataUrl)
+                    setOriginalImage(compressed)
+                    setEnhancedImage(null)
+                    setError(null)
+                    track('upload_complete', { source: 'drop', size: file.size })
                   }
+                  reader.readAsDataURL(file)
                 }
               }}
             >
@@ -241,16 +248,18 @@ export default function Home() {
             </div>
 
             {/* Opt-in */}
-            <div className="animate-fade-in animate-fade-in-delay-2 mt-12 flex items-center gap-3">
-              <button
-                onClick={toggleOptIn}
-                className="apple-toggle"
-                data-checked={optIn}
-                style={{ backgroundColor: optIn ? '#6366f1' : 'rgba(255,255,255,0.1)' }}
-                aria-label="Opt in to save photos"
-              />
-              <span className="text-[13px] text-white/30">Save photos to improve SceneIt</span>
-            </div>
+            {mounted && (
+              <div className="animate-fade-in animate-fade-in-delay-2 mt-12 flex items-center gap-3">
+                <button
+                  onClick={toggleOptIn}
+                  className="apple-toggle"
+                  data-checked={optIn}
+                  style={{ backgroundColor: optIn ? '#6366f1' : 'rgba(255,255,255,0.1)' }}
+                  aria-label="Opt in to save photos"
+                />
+                <span className="text-[13px] text-white/30">Save photos to improve SceneIt</span>
+              </div>
+            )}
           </div>
         ) : (
           /* ─── Processing / Results ─── */
