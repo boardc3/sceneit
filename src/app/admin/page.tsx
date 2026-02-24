@@ -81,7 +81,11 @@ export default function AdminPage() {
     window.open(`/api/admin/export?type=${type}&format=${format}`, '_blank');
   };
 
-  if (!authed) return null;
+  if (!authed) return (
+    <main className="min-h-screen bg-black flex items-center justify-center">
+      <ProgressRing size={48} />
+    </main>
+  );
 
   if (loading) {
     return (
