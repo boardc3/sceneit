@@ -1,10 +1,27 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Search, X, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Search, X, ChevronLeft, ChevronRight, ArrowLeft, Images } from 'lucide-react';
 import Link from 'next/link';
 import type { Transformation, GalleryResponse } from '../../lib/types';
 import { useAnalytics } from '../../hooks/useAnalytics';
+
+function ProgressRing({ size = 32 }: { size?: number }) {
+  return (
+    <svg className="progress-ring" width={size} height={size} viewBox="0 0 100 100">
+      <circle className="progress-ring-circle" cx="50" cy="50" r="45" fill="none" stroke="#6366f1" strokeWidth="3" />
+    </svg>
+  )
+}
+
+const STYLES = [
+  'All',
+  'Modern luxury interior',
+  'Warm cozy lighting',
+  'Clean minimalist',
+  'Bright and airy',
+  'Professional real estate',
+];
 
 export default function GalleryPage() {
   const [data, setData] = useState<GalleryResponse | null>(null);
@@ -34,72 +51,75 @@ export default function GalleryPage() {
   const totalPages = data ? Math.ceil(data.total / data.per_page) : 0;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950 to-slate-950">
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/30 border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-            <ArrowLeft className="w-5 h-5 text-white/70" />
+    <main className="min-h-screen bg-black">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/[0.06]">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center gap-4">
+          <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300">
+            <ArrowLeft className="w-4 h-4 text-white/50" />
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Gallery</h1>
-              <p className="text-[10px] text-white/50 uppercase tracking-widest">Community Transformations</p>
-            </div>
-          </div>
+          <h1 className="text-[15px] font-semibold text-white/90 tracking-tight">Gallery</h1>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+      <div className="pt-14 max-w-6xl mx-auto px-6">
+        {/* Search + Filter Pills */}
+        <div className="py-8 space-y-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
             <input
               type="text"
-              placeholder="Search styles or prompts..."
+              placeholder="Search…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-violet-500/50"
+              className="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/[0.06] rounded-full text-[14px] text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/30 transition-colors duration-300"
             />
           </div>
-          <select
-            value={style}
-            onChange={(e) => { setStyle(e.target.value); setPage(1); }}
-            className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white/70 focus:outline-none focus:border-violet-500/50"
-          >
-            <option value="">All styles</option>
-            <option value="Modern luxury interior">Modern luxury interior</option>
-            <option value="Warm cozy lighting">Warm cozy lighting</option>
-            <option value="Clean minimalist">Clean minimalist</option>
-            <option value="Bright and airy">Bright and airy</option>
-            <option value="Professional real estate">Professional real estate</option>
-          </select>
+
+          {/* Style pills */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {STYLES.map((s) => {
+              const val = s === 'All' ? '' : s;
+              const active = style === val;
+              return (
+                <button
+                  key={s}
+                  onClick={() => { setStyle(val); setPage(1); }}
+                  className={`pill-button whitespace-nowrap text-[13px] ${active ? 'pill-button-active' : ''}`}
+                >
+                  {s}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Grid */}
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex justify-center py-32">
+            <ProgressRing size={40} />
           </div>
         ) : data && data.transformations.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.transformations.map((t) => (
+              {data.transformations.map((t, i) => (
                 <button
                   key={t.id}
                   onClick={() => setSelected(t)}
-                  className="group bg-white/5 rounded-2xl border border-white/10 overflow-hidden hover:border-violet-500/30 transition-colors text-left"
+                  className="group glass-card glass-card-hover overflow-hidden text-left hover-lift animate-fade-in"
+                  style={{ animationDelay: `${i * 50}ms`, opacity: 0 }}
                 >
-                  <div className="grid grid-cols-2 gap-0.5">
-                    <img src={t.original_blob_url} alt="Original" className="w-full aspect-[4/3] object-cover" />
-                    <img src={t.enhanced_blob_url} alt="Enhanced" className="w-full aspect-[4/3] object-cover" />
+                  <div className="grid grid-cols-2 gap-[1px] bg-white/[0.04]">
+                    <img src={t.original_blob_url} alt="Original" className="w-full aspect-[4/3] object-cover transition-all duration-500 group-hover:brightness-110" />
+                    <img src={t.enhanced_blob_url} alt="Enhanced" className="w-full aspect-[4/3] object-cover transition-all duration-500 group-hover:brightness-110 group-hover:scale-[1.02]" />
                   </div>
-                  <div className="p-3">
-                    <p className="text-xs text-white/50">{new Date(t.created_at).toLocaleDateString()}</p>
-                    {t.style_tag && <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded-full">{t.style_tag}</span>}
+                  <div className="p-4">
+                    <p className="text-[12px] text-white/30 font-light">{new Date(t.created_at).toLocaleDateString()}</p>
+                    {t.style_tag && (
+                      <span className="inline-block mt-2 px-3 py-1 text-[11px] font-medium bg-indigo-500/10 text-indigo-400/70 rounded-full border border-indigo-500/10">
+                        {t.style_tag}
+                      </span>
+                    )}
                   </div>
                 </button>
               ))}
@@ -107,59 +127,74 @@ export default function GalleryPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-4 mt-8">
+              <div className="flex justify-center items-center gap-6 py-12">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 transition-colors"
+                  className="p-2.5 rounded-full glass-card glass-card-hover disabled:opacity-20 transition-all duration-300"
                 >
-                  <ChevronLeft className="w-5 h-5 text-white/70" />
+                  <ChevronLeft className="w-4 h-4 text-white/60" />
                 </button>
-                <span className="text-white/50 text-sm">Page {page} of {totalPages}</span>
+                <span className="text-[13px] text-white/30 font-light tabular-nums">
+                  {page} / {totalPages}
+                </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 transition-colors"
+                  className="p-2.5 rounded-full glass-card glass-card-hover disabled:opacity-20 transition-all duration-300"
                 >
-                  <ChevronRight className="w-5 h-5 text-white/70" />
+                  <ChevronRight className="w-4 h-4 text-white/60" />
                 </button>
               </div>
             )}
           </>
         ) : (
-          <div className="text-center py-20 text-white/40">
-            <p className="text-lg">No transformations yet</p>
-            <p className="text-sm mt-2">Opt in to save your transformations and they&apos;ll appear here!</p>
+          /* Empty State */
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="w-16 h-16 rounded-full border border-white/[0.06] flex items-center justify-center mb-6">
+              <Images className="w-7 h-7 text-white/15" />
+            </div>
+            <p className="text-[17px] font-light text-white/40">No transformations yet</p>
+            <p className="text-[13px] text-white/20 mt-2 max-w-xs">
+              Opt in to save your transformations and they&apos;ll appear here.
+            </p>
           </div>
         )}
       </div>
 
       {/* Lightbox */}
       {selected && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="bg-slate-900 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto border border-white/10" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center p-4 border-b border-white/10">
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="glass-card max-w-5xl w-full max-h-[90vh] overflow-auto"
+            style={{ background: 'rgba(10,10,10,0.9)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center px-6 py-4 border-b border-white/[0.06]">
               <div>
-                <h3 className="text-white font-semibold">Before &amp; After</h3>
-                <p className="text-xs text-white/50">{new Date(selected.created_at).toLocaleString()}</p>
+                <h3 className="text-[15px] font-medium text-white/80">Before & After</h3>
+                <p className="text-[12px] text-white/25 mt-0.5">{new Date(selected.created_at).toLocaleString()}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="p-2 rounded-lg hover:bg-white/10">
-                <X className="w-5 h-5 text-white/70" />
+              <button onClick={() => setSelected(null)} className="p-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300">
+                <X className="w-4 h-4 text-white/40" />
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-              <div>
-                <p className="text-xs text-white/50 mb-2 uppercase tracking-wide">Original</p>
-                <img src={selected.original_blob_url} alt="Original" className="w-full rounded-xl" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/[0.04] m-6 rounded-xl overflow-hidden">
+              <div className="bg-black/60 p-1">
+                <img src={selected.original_blob_url} alt="Original" className="w-full rounded-lg" />
               </div>
-              <div>
-                <p className="text-xs text-violet-400 mb-2 uppercase tracking-wide">Enhanced</p>
-                <img src={selected.enhanced_blob_url} alt="Enhanced" className="w-full rounded-xl" />
+              <div className="bg-black/60 p-1">
+                <img src={selected.enhanced_blob_url} alt="Enhanced" className="w-full rounded-lg" />
               </div>
             </div>
             {selected.style_tag && (
-              <div className="px-4 pb-4">
-                <span className="inline-block px-3 py-1 text-sm bg-violet-500/20 text-violet-300 rounded-full">{selected.style_tag}</span>
+              <div className="px-6 pb-6">
+                <span className="inline-block px-3 py-1 text-[12px] font-medium bg-indigo-500/10 text-indigo-400/70 rounded-full border border-indigo-500/10">
+                  {selected.style_tag}
+                </span>
               </div>
             )}
           </div>

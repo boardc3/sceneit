@@ -4,22 +4,23 @@ import './globals.css'
 
 const inter = Inter({
   subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
   variable: '--font-inter',
 })
 
 export const metadata: Metadata = {
-  title: 'SCENEIT - AI Photo Enhancement',
+  title: 'SCENEIT — AI Photo Enhancement',
   description: 'Transform any photo with AI-powered enhancement. Modernize interiors, upgrade exteriors, or reimagine any scene.',
   keywords: ['photo enhancement', 'AI', 'image editing', 'interior design', 'real estate'],
   authors: [{ name: 'SCENEIT' }],
   openGraph: {
-    title: 'SCENEIT - AI Photo Enhancement',
+    title: 'SCENEIT — AI Photo Enhancement',
     description: 'Transform any photo with AI-powered enhancement',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SCENEIT - AI Photo Enhancement',
+    title: 'SCENEIT — AI Photo Enhancement',
     description: 'Transform any photo with AI-powered enhancement',
   },
   manifest: '/manifest.json',
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0f0a1e',
+  themeColor: '#000000',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles, ArrowLeft, Download, BarChart3, Activity, Users, Clock, TrendingUp, AlertCircle, Monitor } from 'lucide-react';
+import { ArrowLeft, Download, BarChart3, Activity, Users, Clock, TrendingUp, AlertCircle, Monitor } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import type { AdminStats } from '../../lib/types';
 
@@ -15,20 +15,37 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
+function ProgressRing({ size = 32 }: { size?: number }) {
+  return (
+    <svg className="progress-ring" width={size} height={size} viewBox="0 0 100 100">
+      <circle className="progress-ring-circle" cx="50" cy="50" r="45" fill="none" stroke="#6366f1" strokeWidth="3" />
+    </svg>
+  )
+}
+
 function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; label: string; value: string | number; sub?: string }) {
   return (
-    <div className="bg-white/5 rounded-2xl p-5 border border-white/10">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-4 h-4 text-violet-400" />
-        <span className="text-xs text-white/50 uppercase tracking-wide">{label}</span>
+    <div className="glass-card glass-card-hover p-6 hover-lift">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-4 h-4 text-indigo-400/60" />
+        <span className="text-[11px] text-white/30 uppercase tracking-wider font-medium">{label}</span>
       </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      {sub && <div className="text-xs text-white/40 mt-1">{sub}</div>}
+      <div className="text-[32px] font-light text-white tracking-tight leading-none">{value}</div>
+      {sub && <div className="text-[12px] text-white/20 mt-2 font-light">{sub}</div>}
     </div>
   );
 }
 
-const COLORS = ['#8b5cf6', '#d946ef', '#a78bfa', '#c084fc', '#e879f9', '#7c3aed', '#a855f7'];
+const COLORS = ['#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff', '#6366f1', '#818cf8'];
+
+const tooltipStyle = {
+  background: 'rgba(10,10,10,0.95)',
+  border: '1px solid rgba(255,255,255,0.06)',
+  borderRadius: 12,
+  color: '#fff',
+  fontSize: 12,
+  padding: '8px 12px',
+};
 
 export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -55,8 +72,8 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950 to-slate-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      <main className="min-h-screen bg-black flex items-center justify-center">
+        <ProgressRing size={40} />
       </main>
     );
   }
@@ -64,195 +81,190 @@ export default function AdminPage() {
   if (!stats) return null;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950 to-slate-950">
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/30 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <main className="min-h-screen bg-black">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/[0.06]">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-              <ArrowLeft className="w-5 h-5 text-white/70" />
+            <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300">
+              <ArrowLeft className="w-4 h-4 text-white/50" />
             </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Admin Dashboard</h1>
-                <p className="text-[10px] text-white/50 uppercase tracking-widest">SceneIt Analytics</p>
-              </div>
+            <div>
+              <h1 className="text-[15px] font-semibold text-white/90 tracking-tight">Dashboard</h1>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => handleExport('transformations', 'csv')} className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-white/70 transition-colors">
-              <Download className="w-3.5 h-3.5" /> Export CSV
+            <button
+              onClick={() => handleExport('transformations', 'csv')}
+              className="pill-button text-[12px] flex items-center gap-1.5"
+            >
+              <Download className="w-3 h-3" /> CSV
             </button>
-            <button onClick={() => handleExport('events', 'json')} className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-white/70 transition-colors">
-              <Download className="w-3.5 h-3.5" /> Events JSON
+            <button
+              onClick={() => handleExport('events', 'json')}
+              className="pill-button text-[12px] flex items-center gap-1.5"
+            >
+              <Download className="w-3 h-3" /> JSON
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="pt-14 max-w-7xl mx-auto px-6 py-8 space-y-6">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-fade-in">
           <StatCard icon={BarChart3} label="Total" value={stats.total_transformations} />
           <StatCard icon={Activity} label="Today" value={stats.today_count} sub={`${stats.week_count} this week`} />
-          <StatCard icon={TrendingUp} label="This Month" value={stats.month_count} />
+          <StatCard icon={TrendingUp} label="Month" value={stats.month_count} />
           <StatCard icon={Clock} label="Avg Time" value={`${(stats.avg_processing_time_ms / 1000).toFixed(1)}s`} />
-          <StatCard icon={Users} label="Opt-in Rate" value={`${stats.opt_in_rate}%`} sub={formatBytes(stats.total_storage_bytes) + ' stored'} />
+          <StatCard icon={Users} label="Opt-in" value={`${stats.opt_in_rate}%`} sub={formatBytes(stats.total_storage_bytes)} />
         </div>
 
         {/* Funnel */}
-        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-          <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4">Conversion Funnel</h2>
+        <div className="glass-card p-6 animate-fade-in animate-fade-in-delay-1">
+          <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Conversion Funnel</h2>
           <div className="grid grid-cols-4 gap-4">
             {[
-              { label: 'Page Views', value: stats.funnel.page_views, color: 'from-blue-500 to-blue-600' },
-              { label: 'Uploads', value: stats.funnel.uploads, color: 'from-violet-500 to-violet-600' },
-              { label: 'Enhances', value: stats.funnel.enhances, color: 'from-fuchsia-500 to-fuchsia-600' },
-              { label: 'Downloads', value: stats.funnel.downloads, color: 'from-emerald-500 to-emerald-600' },
+              { label: 'Views', value: stats.funnel.page_views },
+              { label: 'Uploads', value: stats.funnel.uploads },
+              { label: 'Enhances', value: stats.funnel.enhances },
+              { label: 'Downloads', value: stats.funnel.downloads },
             ].map((step, i) => {
               const prev = i === 0 ? step.value : [stats.funnel.page_views, stats.funnel.uploads, stats.funnel.enhances, stats.funnel.downloads][i - 1];
               const rate = prev > 0 ? Math.round((step.value / prev) * 100) : 0;
               return (
                 <div key={step.label} className="text-center">
-                  <div className={`bg-gradient-to-r ${step.color} rounded-xl py-4 px-2 mb-2`}>
-                    <div className="text-2xl font-bold text-white">{step.value}</div>
-                  </div>
-                  <div className="text-xs text-white/50">{step.label}</div>
-                  {i > 0 && <div className="text-xs text-white/30 mt-0.5">{rate}% conv.</div>}
+                  <div className="text-[36px] font-light text-white tracking-tight leading-none mb-2">{step.value}</div>
+                  <div className="text-[11px] text-white/30 uppercase tracking-wider">{step.label}</div>
+                  {i > 0 && <div className="text-[11px] text-indigo-400/50 mt-1">{rate}%</div>}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Charts Row */}
+        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Daily Transformations */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4">Daily Transformations (30d)</h2>
-            <ResponsiveContainer width="100%" height={250}>
+          {/* Daily */}
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Daily (30d)</h2>
+            <ResponsiveContainer width="100%" height={220}>
               <LineChart data={stats.daily_counts}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} tickFormatter={(d: string) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: '#1e1b4b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-                <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} tickFormatter={(d: string) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={1.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Popular Styles */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4">Popular Styles</h2>
-            <ResponsiveContainer width="100%" height={250}>
+          {/* Styles */}
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Styles</h2>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={stats.popular_styles} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} />
-                <YAxis type="category" dataKey="style" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }} width={120} />
-                <Tooltip contentStyle={{ background: '#1e1b4b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="style" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="count" radius={[0, 6, 6, 0]}>
                   {stats.popular_styles.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Peak Hours */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4">Peak Usage Hours</h2>
-            <ResponsiveContainer width="100%" height={250}>
+          {/* Hours */}
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Peak Hours</h2>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={stats.peak_hours}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="hour" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} tickFormatter={(h: number) => `${h}:00`} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: '#1e1b4b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-                <Bar dataKey="count" fill="#d946ef" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="hour" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} tickFormatter={(h: number) => `${h}:00`} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} opacity={0.7} />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Processing Time Distribution */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4">Processing Time</h2>
-            <ResponsiveContainer width="100%" height={250}>
+          {/* Processing */}
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Processing Time</h2>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={stats.processing_distribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="bucket" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} />
-                <Tooltip contentStyle={{ background: '#1e1b4b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#fff' }} />
-                <Bar dataKey="count" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="bucket" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="count" fill="#818cf8" radius={[4, 4, 0, 0]} opacity={0.6} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Attribution & Devices Row */}
+        {/* Bottom Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Attribution */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" /> Attribution
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <TrendingUp className="w-3.5 h-3.5" /> Attribution
             </h2>
             <div className="space-y-3">
               {stats.attribution.length === 0 ? (
-                <p className="text-white/30 text-sm">No data yet</p>
+                <p className="text-[13px] text-white/15">No data yet</p>
               ) : stats.attribution.map((a, i) => (
                 <div key={i} className="flex justify-between items-center">
-                  <span className="text-sm text-white/70 truncate">{a.source}</span>
-                  <span className="text-sm font-mono text-violet-400">{a.count}</span>
+                  <span className="text-[13px] text-white/40 truncate font-light">{a.source}</span>
+                  <span className="text-[13px] font-medium text-indigo-400/60 tabular-nums">{a.count}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Device Breakdown */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4 flex items-center gap-2">
-              <Monitor className="w-4 h-4" /> Devices
+          {/* Devices */}
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Monitor className="w-3.5 h-3.5" /> Devices
             </h2>
             <div className="space-y-3">
               {stats.device_breakdown.length === 0 ? (
-                <p className="text-white/30 text-sm">No data yet</p>
+                <p className="text-[13px] text-white/15">No data yet</p>
               ) : stats.device_breakdown.map((d, i) => (
                 <div key={i} className="flex justify-between items-center">
-                  <span className="text-sm text-white/70 capitalize">{d.device}</span>
-                  <span className="text-sm font-mono text-violet-400">{d.count}</span>
+                  <span className="text-[13px] text-white/40 capitalize font-light">{d.device}</span>
+                  <span className="text-[13px] font-medium text-indigo-400/60 tabular-nums">{d.count}</span>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Error Rate */}
-          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-            <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" /> Error Rate
+          <div className="glass-card p-6">
+            <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <AlertCircle className="w-3.5 h-3.5" /> Error Rate
             </h2>
-            <div className="text-4xl font-bold text-white">{stats.error_rate.toFixed(1)}%</div>
-            <p className="text-xs text-white/40 mt-2">Of all enhance attempts</p>
+            <div className="text-[48px] font-light text-white tracking-tight leading-none">{stats.error_rate.toFixed(1)}%</div>
+            <p className="text-[12px] text-white/15 mt-3 font-light">Of all enhance attempts</p>
           </div>
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-          <h2 className="text-sm font-semibold text-white/70 uppercase tracking-wide mb-4">Recent Transformations</h2>
+        <div className="glass-card p-6">
+          <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Recent</h2>
           {stats.recent_transformations.length === 0 ? (
-            <p className="text-white/30 text-sm">No transformations yet</p>
+            <p className="text-[13px] text-white/15">No transformations yet</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {stats.recent_transformations.map((t) => (
-                <div key={t.id} className="flex items-center gap-4 p-3 rounded-xl bg-white/5">
+                <div key={t.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.02] transition-colors duration-300">
                   {t.enhanced_blob_url && (
-                    <img src={t.enhanced_blob_url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                    <img src={t.enhanced_blob_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/70 truncate">{t.style_tag || t.prompt_used || 'Default style'}</p>
-                    <p className="text-xs text-white/40">{new Date(t.created_at).toLocaleString()}</p>
+                    <p className="text-[13px] text-white/50 truncate font-light">{t.style_tag || t.prompt_used || 'Default'}</p>
+                    <p className="text-[11px] text-white/20">{new Date(t.created_at).toLocaleString()}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-xs text-white/50">{(t.processing_time_ms / 1000).toFixed(1)}s</p>
-                    <p className="text-xs text-white/30">{t.opt_in ? '✓ opt-in' : 'no opt-in'}</p>
+                    <p className="text-[12px] text-white/25 tabular-nums">{(t.processing_time_ms / 1000).toFixed(1)}s</p>
+                    <p className="text-[11px] text-white/15">{t.opt_in ? '✓' : '—'}</p>
                   </div>
                 </div>
               ))}

@@ -1,9 +1,25 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Camera, Upload, Sparkles, Download, RotateCcw, Loader2, X, ImageIcon, Images } from 'lucide-react'
+import { Camera, Upload, Sparkles, Download, RotateCcw, X, ImageIcon, Images, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
 import { useAnalytics } from '../hooks/useAnalytics'
+
+function ProgressRing() {
+  return (
+    <svg className="progress-ring w-16 h-16" viewBox="0 0 100 100">
+      <circle
+        className="progress-ring-circle"
+        cx="50"
+        cy="50"
+        r="45"
+        fill="none"
+        stroke="#6366f1"
+        strokeWidth="3"
+      />
+    </svg>
+  )
+}
 
 export default function Home() {
   const [originalImage, setOriginalImage] = useState<string | null>(null)
@@ -17,7 +33,6 @@ export default function Home() {
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { track, getSessionId, flush } = useAnalytics()
 
-  // Load opt-in preference from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('sceneit_opt_in')
     if (saved === 'true') setOptIn(true)
@@ -37,19 +52,16 @@ export default function Home() {
       img.onload = () => {
         const canvas = document.createElement('canvas')
         let { width, height } = img
-
         const maxDim = 2048
         if (width > maxDim || height > maxDim) {
           const scale = maxDim / Math.max(width, height)
           width = Math.round(width * scale)
           height = Math.round(height * scale)
         }
-
         canvas.width = width
         canvas.height = height
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0, width, height)
-
         let quality = 0.85
         let result = canvas.toDataURL('image/jpeg', quality)
         while (result.length > maxSizeKB * 1024 * 1.37 && quality > 0.3) {
@@ -65,14 +77,11 @@ export default function Home() {
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>, source: string) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file')
       return
     }
-
     track('upload_start', { source })
-
     const reader = new FileReader()
     reader.onload = async (event) => {
       const dataUrl = event.target?.result as string
@@ -87,16 +96,13 @@ export default function Home() {
 
   const handleEnhance = async (prompt?: string) => {
     if (!originalImage) return
-
     setIsProcessing(true)
     setError(null)
     setShowPromptInput(false)
-
     const styleTag = prompt || undefined
     track('enhance_start', { style_tag: styleTag, has_custom_prompt: !!customPrompt })
     if (styleTag) track('style_selected', { style: styleTag })
     if (customPrompt && !prompt) track('prompt_custom', { prompt: customPrompt })
-
     try {
       const response = await fetch('/api/enhance', {
         method: 'POST',
@@ -109,13 +115,8 @@ export default function Home() {
           style_tag: styleTag || (customPrompt ? 'custom' : null),
         })
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Enhancement failed')
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Enhancement failed')
       setEnhancedImage(data.enhanced)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong'
@@ -129,7 +130,6 @@ export default function Home() {
   const handleDownload = () => {
     if (!enhancedImage) return
     track('download')
-
     const link = document.createElement('a')
     link.href = enhancedImage
     link.download = `sceneit-enhanced-${Date.now()}.png`
@@ -149,73 +149,103 @@ export default function Home() {
     flush()
   }
 
+  const styles = [
+    'Modern luxury interior',
+    'Warm cozy lighting',
+    'Clean minimalist',
+    'Bright and airy',
+    'Professional real estate',
+  ]
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-950 via-violet-950 to-slate-950">
+    <main className="min-h-screen bg-black">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/30 border-b border-white/10">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-                SCENEIT
-              </h1>
-              <p className="text-[10px] text-white/50 uppercase tracking-widest">AI Photo Enhancement</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/gallery" className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm text-white/70">
-              <Images className="w-4 h-4" />
-              <span className="hidden sm:inline">Gallery</span>
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl bg-black/80 border-b border-white/[0.06]">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <Link href="/" className="text-[15px] font-semibold text-white/90 tracking-tight">
+            SCENEIT
+          </Link>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/gallery"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[13px] font-medium text-white/60 hover:text-white/90 transition-colors duration-300"
+            >
+              <Images className="w-3.5 h-3.5" />
+              Gallery
             </Link>
             {originalImage && (
               <button
                 onClick={handleReset}
-                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="p-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300"
               >
-                <RotateCcw className="w-5 h-5 text-white/70" />
+                <RotateCcw className="w-4 h-4 text-white/50" />
               </button>
             )}
           </div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="pt-14">
         {!originalImage ? (
-          /* Upload State */
-          <div className="flex flex-col items-center justify-center min-h-[70vh]">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
-                Transform Your Photos
-              </h2>
-              <p className="text-white/60 text-lg max-w-md mx-auto">
-                Enhance any image with AI-powered magic. Modernize interiors, upgrade exteriors, or reimagine any scene.
+          /* ─── Upload State ─── */
+          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] px-6">
+            {/* Wordmark */}
+            <div className="text-center mb-16 animate-fade-in">
+              <h1 className="text-[clamp(3rem,8vw,6rem)] font-light text-white tracking-[0.15em] leading-none">
+                SCENEIT
+              </h1>
+              <p className="mt-4 text-[17px] font-light text-white/40 max-w-md mx-auto leading-relaxed">
+                AI-powered photo enhancement.
+                <br />
+                Transform any scene in seconds.
               </p>
             </div>
 
-            {/* Opt-in Toggle */}
-            <div className="mb-8 flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl border border-white/10">
+            {/* Drop Zone */}
+            <div
+              className="animate-fade-in animate-fade-in-delay-1 w-full max-w-lg"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = e.dataTransfer.files[0]
+                if (file && file.type.startsWith('image/')) {
+                  const input = fileInputRef.current
+                  if (input) {
+                    const dt = new DataTransfer()
+                    dt.items.add(file)
+                    input.files = dt.files
+                    input.dispatchEvent(new Event('change', { bubbles: true }))
+                  }
+                }
+              }}
+            >
               <button
-                onClick={toggleOptIn}
-                className={`relative w-11 h-6 rounded-full transition-colors ${optIn ? 'bg-violet-600' : 'bg-white/20'}`}
+                onClick={() => fileInputRef.current?.click()}
+                className="group w-full glass-card glass-card-hover hover-lift p-16 flex flex-col items-center gap-4 cursor-pointer"
               >
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${optIn ? 'translate-x-5' : ''}`} />
+                <div className="w-12 h-12 rounded-full border border-white/[0.08] flex items-center justify-center group-hover:border-white/20 transition-colors duration-300">
+                  <ArrowUpRight className="w-5 h-5 text-white/40 group-hover:text-white/70 transition-colors duration-300" />
+                </div>
+                <div className="text-center">
+                  <p className="text-[15px] font-medium text-white/70">Drop your photo</p>
+                  <p className="text-[13px] text-white/30 mt-1">or click to browse</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileSelect(e, 'upload')}
+                  className="hidden"
+                />
               </button>
-              <span className="text-sm text-white/60">Save my photos to help improve SceneIt</span>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
-              {/* Camera Button */}
+              {/* Camera secondary */}
               <button
                 onClick={() => cameraInputRef.current?.click()}
-                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 p-6 text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-full text-[13px] font-medium text-white/30 hover:text-white/60 transition-colors duration-300"
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Camera className="w-12 h-12 mx-auto mb-3" />
-                <div className="font-semibold text-lg">Take Photo</div>
-                <div className="text-sm text-white/70">Use your camera</div>
+                <Camera className="w-4 h-4" />
+                Use camera
                 <input
                   ref={cameraInputRef}
                   type="file"
@@ -225,60 +255,41 @@ export default function Home() {
                   className="hidden"
                 />
               </button>
-
-              {/* Upload Button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-600 to-fuchsia-800 p-6 text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Upload className="w-12 h-12 mx-auto mb-3" />
-                <div className="font-semibold text-lg">Upload</div>
-                <div className="text-sm text-white/70">Choose from library</div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileSelect(e, 'upload')}
-                  className="hidden"
-                />
-              </button>
             </div>
 
-            {/* Features */}
-            <div className="mt-16 grid grid-cols-3 gap-8 text-center max-w-lg">
-              {[
-                { icon: '🏠', label: 'Interiors' },
-                { icon: '🌇', label: 'Exteriors' },
-                { icon: '✨', label: 'Any Scene' },
-              ].map((feature) => (
-                <div key={feature.label} className="text-white/50">
-                  <div className="text-3xl mb-2">{feature.icon}</div>
-                  <div className="text-sm">{feature.label}</div>
-                </div>
-              ))}
+            {/* Opt-in */}
+            <div className="animate-fade-in animate-fade-in-delay-2 mt-12 flex items-center gap-3">
+              <button
+                onClick={toggleOptIn}
+                className="apple-toggle"
+                data-checked={optIn}
+                style={{ backgroundColor: optIn ? '#6366f1' : 'rgba(255,255,255,0.1)' }}
+                aria-label="Opt in to save photos"
+              />
+              <span className="text-[13px] text-white/30">Save photos to improve SceneIt</span>
             </div>
           </div>
         ) : (
-          /* Processing/Results State */
-          <div className="space-y-6">
+          /* ─── Processing / Results ─── */
+          <div className="min-h-[calc(100vh-56px)] flex flex-col">
             {/* Error */}
             {error && (
-              <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
-                <X className="w-5 h-5 text-red-400 flex-shrink-0" />
-                <p className="text-red-200">{error}</p>
+              <div className="mx-6 mt-6 glass-card px-5 py-4 flex items-center gap-3 border-red-500/20">
+                <X className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <p className="text-[14px] text-red-300/80">{error}</p>
               </div>
             )}
 
-            {/* Image Comparison */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Image Comparison — full bleed */}
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/[0.04] mt-6 mx-6 rounded-2xl overflow-hidden">
               {/* Original */}
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                <div className="flex items-center gap-2 mb-3">
-                  <ImageIcon className="w-4 h-4 text-white/50" />
-                  <span className="text-sm font-medium text-white/70 uppercase tracking-wide">Original</span>
+              <div className="relative bg-black/60">
+                <div className="absolute top-4 left-4 z-10">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider text-white/40 bg-black/40 backdrop-blur-xl border border-white/[0.06]">
+                    Original
+                  </span>
                 </div>
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-black/30">
+                <div className="aspect-[4/3] flex items-center justify-center">
                   <img
                     src={originalImage}
                     alt="Original"
@@ -288,17 +299,17 @@ export default function Home() {
               </div>
 
               {/* Enhanced */}
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-violet-400" />
-                  <span className="text-sm font-medium text-violet-400 uppercase tracking-wide">Enhanced</span>
+              <div className="relative bg-black/60">
+                <div className="absolute top-4 left-4 z-10">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider text-indigo-400/80 bg-black/40 backdrop-blur-xl border border-indigo-500/20">
+                    Enhanced
+                  </span>
                 </div>
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-black/30">
+                <div className="aspect-[4/3] flex items-center justify-center">
                   {isProcessing ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <Loader2 className="w-12 h-12 text-violet-400 animate-spin mb-4" />
-                      <p className="text-white/60">Enhancing your image...</p>
-                      <p className="text-white/40 text-sm mt-1">This may take a moment</p>
+                    <div className="flex flex-col items-center gap-4">
+                      <ProgressRing />
+                      <p className="text-[13px] text-white/30">Enhancing…</p>
                     </div>
                   ) : enhancedImage ? (
                     <img
@@ -307,104 +318,87 @@ export default function Home() {
                       className="w-full h-full object-contain"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <p className="text-white/40">Click enhance to transform</p>
-                    </div>
+                    <p className="text-[13px] text-white/20">Choose a style to enhance</p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Custom Prompt Section */}
-            {showPromptInput && !isProcessing && (
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-                <label className="block text-sm font-medium text-white/70 mb-2">
-                  Custom Enhancement Prompt (optional)
-                </label>
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="e.g., Make it look like a modern luxury home, add warm lighting, make it cozy..."
-                  className="w-full bg-black/30 border border-white/10 rounded-xl p-4 text-white placeholder-white/30 resize-none focus:outline-none focus:border-violet-500/50 transition-colors"
-                  rows={3}
-                />
-              </div>
-            )}
+            {/* Floating Control Bar */}
+            <div className="sticky bottom-0 z-40 p-6">
+              <div className="max-w-3xl mx-auto glass-card px-6 py-4 flex flex-col gap-4" style={{ background: 'rgba(10,10,10,0.85)', backdropFilter: 'blur(40px)' }}>
+                {/* Custom prompt */}
+                {showPromptInput && !isProcessing && (
+                  <textarea
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder="Describe your vision…"
+                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-[14px] text-white placeholder-white/20 resize-none focus:outline-none focus:border-indigo-500/30 transition-colors duration-300"
+                    rows={2}
+                  />
+                )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              {!enhancedImage && !isProcessing && (
-                <>
-                  <button
-                    onClick={() => handleEnhance()}
-                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-semibold py-4 px-6 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Sparkles className="w-5 h-5" />
-                    Enhance Photo
-                  </button>
-                  <button
-                    onClick={() => setShowPromptInput(!showPromptInput)}
-                    className="sm:w-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium py-4 px-6 rounded-xl transition-colors"
-                  >
-                    {showPromptInput ? 'Hide Options' : 'Custom Style'}
-                  </button>
-                </>
-              )}
-
-              {enhancedImage && (
-                <>
-                  <button
-                    onClick={handleDownload}
-                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-4 px-6 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <Download className="w-5 h-5" />
-                    Download
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEnhancedImage(null)
-                      setShowPromptInput(true)
-                    }}
-                    className="sm:w-auto flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium py-4 px-6 rounded-xl transition-colors"
-                  >
-                    <RotateCcw className="w-5 h-5" />
-                    Try Again
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Quick Style Buttons */}
-            {!enhancedImage && !isProcessing && (
-              <div className="pt-4 border-t border-white/10">
-                <p className="text-sm text-white/50 mb-3">Quick styles:</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    'Modern luxury interior',
-                    'Warm cozy lighting',
-                    'Clean minimalist',
-                    'Bright and airy',
-                    'Professional real estate',
-                  ].map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => handleEnhance(style)}
-                      className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-sm transition-colors border border-white/10 hover:border-white/20"
-                    >
-                      {style}
-                    </button>
-                  ))}
+                {/* Actions */}
+                <div className="flex items-center gap-3 justify-center flex-wrap">
+                  {!enhancedImage && !isProcessing && (
+                    <>
+                      <button
+                        onClick={() => handleEnhance()}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white text-[14px] font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Enhance
+                      </button>
+                      <button
+                        onClick={() => setShowPromptInput(!showPromptInput)}
+                        className="pill-button"
+                      >
+                        {showPromptInput ? 'Hide' : 'Custom'}
+                      </button>
+                    </>
+                  )}
+                  {enhancedImage && (
+                    <>
+                      <button
+                        onClick={handleDownload}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/90 text-black text-[14px] font-medium transition-all duration-300 hover:bg-white hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEnhancedImage(null)
+                          setShowPromptInput(true)
+                        }}
+                        className="pill-button"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 inline mr-1.5" />
+                        Try Again
+                      </button>
+                    </>
+                  )}
                 </div>
+
+                {/* Quick Styles */}
+                {!enhancedImage && !isProcessing && (
+                  <div className="flex gap-2 overflow-x-auto pb-1 justify-center flex-wrap">
+                    {styles.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => handleEnhance(s)}
+                        className="pill-button whitespace-nowrap text-[13px]"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
-
-      {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 py-4 text-center text-white/30 text-xs bg-gradient-to-t from-black/50 to-transparent pointer-events-none">
-        Powered by AI • SCENEIT
-      </footer>
     </main>
   )
 }
