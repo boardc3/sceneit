@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Download, BarChart3, Activity, Users, Clock, TrendingUp, AlertCircle, Monitor } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { AdminStats } from '../../lib/types';
 
 const STYLE_COLORS: Record<string, string> = {
@@ -48,17 +47,41 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; 
 }
 
 function getStyleColor(style: string): string {
-  return STYLE_COLORS[style] || '#6366f1';
+  return STYLE_COLORS[style] || STYLE_COLORS['default'];
 }
 
-const tooltipStyle = {
-  background: 'rgba(10,10,10,0.95)',
-  border: '1px solid rgba(255,255,255,0.06)',
-  borderRadius: 12,
-  color: '#fff',
-  fontSize: 12,
-  padding: '8px 12px',
-};
+function SimpleBarChart({ data, labelKey, valueKey, colorFn, formatLabel }: {
+  data: Record<string, unknown>[];
+  labelKey: string;
+  valueKey: string;
+  colorFn?: (item: Record<string, unknown>) => string;
+  formatLabel?: (val: unknown) => string;
+}) {
+  if (!data.length) return <p className="text-[13px] text-white/15">No data yet</p>;
+  const maxVal = Math.max(...data.map(d => Number(d[valueKey]) || 0), 1);
+  return (
+    <div className="space-y-2">
+      {data.map((item, i) => {
+        const val = Number(item[valueKey]) || 0;
+        const pct = (val / maxVal) * 100;
+        const label = formatLabel ? formatLabel(item[labelKey]) : String(item[labelKey]);
+        const color = colorFn ? colorFn(item) : '#6366f1';
+        return (
+          <div key={i} className="flex items-center gap-3">
+            <span className="text-[11px] text-white/30 w-20 truncate text-right flex-shrink-0">{label}</span>
+            <div className="flex-1 h-5 bg-white/[0.03] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.7 }}
+              />
+            </div>
+            <span className="text-[11px] text-white/40 w-8 tabular-nums flex-shrink-0">{val}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -106,21 +129,13 @@ export default function AdminPage() {
             <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/[0.06] transition-colors duration-300">
               <ArrowLeft className="w-4 h-4 text-white/50" />
             </Link>
-            <div>
-              <h1 className="text-[15px] font-semibold text-white/90 tracking-tight">Dashboard</h1>
-            </div>
+            <h1 className="text-[15px] font-semibold text-white/90 tracking-tight">Dashboard</h1>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => handleExport('transformations', 'csv')}
-              className="pill-button text-[12px] flex items-center gap-1.5"
-            >
+            <button onClick={() => handleExport('transformations', 'csv')} className="pill-button text-[12px] flex items-center gap-1.5">
               <Download className="w-3 h-3" /> CSV
             </button>
-            <button
-              onClick={() => handleExport('events', 'json')}
-              className="pill-button text-[12px] flex items-center gap-1.5"
-            >
+            <button onClick={() => handleExport('events', 'json')} className="pill-button text-[12px] flex items-center gap-1.5">
               <Download className="w-3 h-3" /> JSON
             </button>
           </div>
@@ -165,57 +180,48 @@ export default function AdminPage() {
           {/* Daily */}
           <div className="glass-card p-6">
             <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Daily (30d)</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={stats.daily_counts}>
-                <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} tickFormatter={(d: string) => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={1.5} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            <SimpleBarChart
+              data={stats.daily_counts}
+              labelKey="date"
+              valueKey="count"
+              formatLabel={(d) => {
+                try { return new Date(String(d)).toLocaleDateString('en', { month: 'short', day: 'numeric' }); }
+                catch { return String(d); }
+              }}
+            />
           </div>
 
-          {/* Styles — using accent colors */}
+          {/* Styles */}
           <div className="glass-card p-6">
             <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Styles</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={stats.popular_styles} layout="vertical">
-                <XAxis type="number" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="style" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                  {stats.popular_styles.map((entry, i) => (
-                    <Cell key={i} fill={getStyleColor(entry.style)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <SimpleBarChart
+              data={stats.popular_styles}
+              labelKey="style"
+              valueKey="count"
+              colorFn={(item) => getStyleColor(String(item.style))}
+            />
           </div>
 
-          {/* Hours */}
+          {/* Peak Hours */}
           <div className="glass-card p-6">
             <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Peak Hours</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={stats.peak_hours}>
-                <XAxis dataKey="hour" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} tickFormatter={(h: number) => `${h}:00`} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="count" fill="#6366f1" radius={[4, 4, 0, 0]} opacity={0.7} />
-              </BarChart>
-            </ResponsiveContainer>
+            <SimpleBarChart
+              data={stats.peak_hours}
+              labelKey="hour"
+              valueKey="count"
+              formatLabel={(h) => `${h}:00`}
+            />
           </div>
 
-          {/* Processing */}
+          {/* Processing Time */}
           <div className="glass-card p-6">
             <h2 className="text-[12px] font-medium text-white/30 uppercase tracking-wider mb-5">Processing Time</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={stats.processing_distribution}>
-                <XAxis dataKey="bucket" tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'rgba(255,255,255,0.15)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="count" fill="#818cf8" radius={[4, 4, 0, 0]} opacity={0.6} />
-              </BarChart>
-            </ResponsiveContainer>
+            <SimpleBarChart
+              data={stats.processing_distribution}
+              labelKey="bucket"
+              valueKey="count"
+              colorFn={() => '#818cf8'}
+            />
           </div>
         </div>
 
@@ -283,10 +289,7 @@ export default function AdminPage() {
                       <div className="flex items-center gap-2">
                         <p className="text-[13px] text-white/50 truncate font-light">{t.style_name || t.prompt_used || 'Default'}</p>
                         {t.style_key && (
-                          <span
-                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          />
+                          <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                         )}
                       </div>
                       <p className="text-[11px] text-white/20">{new Date(t.created_at).toLocaleString()}</p>
