@@ -83,10 +83,13 @@ function SimpleBarChart({ data, labelKey, valueKey, colorFn, formatLabel }: {
   );
 }
 
+type RecentTransformation = AdminStats['recent_transformations'][number];
+
 export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [authed, setAuthed] = useState(false);
+  const [selected, setSelected] = useState<RecentTransformation | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -281,7 +284,11 @@ export default function AdminPage() {
               {stats.recent_transformations.map((t) => {
                 const color = t.style_key ? getStyleColor(t.style_key) : '#6366f1';
                 return (
-                  <div key={t.id} className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.02] transition-colors duration-300">
+                  <button
+                    key={t.id}
+                    onClick={() => setSelected(t)}
+                    className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.04] transition-colors duration-300 cursor-pointer text-left"
+                  >
                     {t.enhanced_blob_url && (
                       <img src={t.enhanced_blob_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                     )}
@@ -298,13 +305,80 @@ export default function AdminPage() {
                       <p className="text-[12px] text-white/25 tabular-nums">{(t.processing_time_ms / 1000).toFixed(1)}s</p>
                       <p className="text-[11px] text-white/15">{t.opt_in ? '✓' : '—'}</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       </div>
+
+      {/* Before/After Lightbox */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col"
+          onClick={() => setSelected(null)}
+        >
+          {/* Close bar */}
+          <div className="flex items-center justify-between px-6 py-4 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-white/50">{selected.style_name || selected.prompt_used || 'Default Modernize'}</span>
+              <span className="text-[11px] text-white/20">•</span>
+              <span className="text-[11px] text-white/20">{new Date(selected.created_at).toLocaleString()}</span>
+              <span className="text-[11px] text-white/20">•</span>
+              <span className="text-[11px] text-white/20">{(selected.processing_time_ms / 1000).toFixed(1)}s</span>
+            </div>
+            <button
+              onClick={() => setSelected(null)}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+            >
+              <span className="text-white/60 text-lg">✕</span>
+            </button>
+          </div>
+
+          {/* Images */}
+          <div
+            className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-[1px] bg-white/[0.04] mx-4 mb-4 rounded-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Original */}
+            <div className="relative bg-black/60 flex items-center justify-center">
+              <div className="absolute top-4 left-4 z-10">
+                <span className="px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider text-white/40 bg-black/40 backdrop-blur-xl border border-white/[0.06]">
+                  Original
+                </span>
+              </div>
+              {selected.original_blob_url ? (
+                <img src={selected.original_blob_url} alt="Original" className="w-full h-full object-contain max-h-[80vh]" />
+              ) : (
+                <p className="text-white/20 text-[13px]">No original saved</p>
+              )}
+            </div>
+
+            {/* Enhanced */}
+            <div className="relative bg-black/60 flex items-center justify-center">
+              <div className="absolute top-4 left-4 z-10">
+                <span className="px-3 py-1 rounded-full text-[11px] font-medium uppercase tracking-wider text-indigo-400/80 bg-black/40 backdrop-blur-xl border border-indigo-500/20">
+                  Modernized
+                </span>
+              </div>
+              {selected.enhanced_blob_url ? (
+                <img src={selected.enhanced_blob_url} alt="Modernized" className="w-full h-full object-contain max-h-[80vh]" />
+              ) : (
+                <p className="text-white/20 text-[13px]">No enhanced saved</p>
+              )}
+            </div>
+          </div>
+
+          {/* Details bar */}
+          <div className="flex items-center justify-center gap-6 px-6 pb-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <span className="text-[11px] text-white/20">Session: {selected.session_id?.slice(0, 8)}…</span>
+            <span className="text-[11px] text-white/20">Original: {formatBytes(selected.original_size_bytes || 0)}</span>
+            <span className="text-[11px] text-white/20">Enhanced: {formatBytes(selected.enhanced_size_bytes || 0)}</span>
+            <span className="text-[11px] text-white/20">Device: {selected.user_agent?.includes('iPhone') ? 'iPhone' : selected.user_agent?.includes('Android') ? 'Android' : 'Desktop'}</span>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
